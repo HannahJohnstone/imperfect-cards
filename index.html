@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#294B2F" />
+<title>Imperfect Cards</title>
+<style>
+  :root { --fg:#1b3a28; --bg:#f4f7f5; --accent:#294B2F; --muted:#6b8f75; }
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial}
+  body{margin:0;background:var(--bg);color:var(--fg)}
+  header{padding:12px 16px;display:flex;gap:8px;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#23422b,#294B2F);color:white;position:sticky;top:0;z-index:5}
+  header h1{font-size:18px;margin:0;font-weight:700}
+  header .actions{display:flex;gap:8px}
+  button, .btn{border:0;border-radius:10px;padding:10px 12px;background:#e6efe9;color:var(--accent);font-weight:600}
+  button.primary{background:#cfe3d6;color:#15351f}
+  main{padding:16px;max-width:760px;margin:0 auto}
+  .card-wrap{position:relative;height:60vh;min-height:360px;perspective:1200px;margin:12px 0 16px}
+  .card{position:absolute;inset:0;border-radius:16px;box-shadow:0 6px 25px rgba(0,0,0,.12);transform-style:preserve-3d;transition:transform .5s;overflow:hidden;background:white}
+  .card-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px}
+  .front,.back{position:absolute;inset:0;backface-visibility:hidden}
+  .front{display:flex;align-items:center;justify-content:center;background:#eaf2ed}
+  .front img{max-width:100%;max-height:100%;object-fit:contain}
+  .back{transform:rotateY(180deg);padding:18px;display:flex;align-items:center;justify-content:center}
+  .back .text{white-space:pre-wrap;line-height:1.5;font-size:1.05rem;color:#173c26}
+  .card.flipped{transform:rotateY(180deg)}
+  .controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .small{font-size:12px;color:#30543a;opacity:.9}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  input[type="text"], textarea{width:100%;padding:10px;border:1px solid #c9d7cf;border-radius:10px;background:white}
+  textarea{min-height:80px;resize:vertical}
+  .pill{display:inline-flex;gap:6px;align-items:center;background:#e3eee7;color:#21432b;border-radius:999px;padding:6px 10px;font-size:12px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .deck-info{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:6px 0;color:#30543a}
+  .hidden{display:none}
+  footer{padding:24px 16px;color:#658a73}
+</style>
+</head>
+<body>
+<header>
+  <h1>Imperfect Cards</h1>
+  <div class="actions">
+    <button id="btnImport" class="btn">Import</button>
+    <button id="btnExport" class="btn">Export</button>
+    <button id="btnInstall" class="btn primary hidden">Install</button>
+  </div>
+</header>
+
+<main>
+  <div class="deck-info">
+    <div class="pill"><span id="count">0</span> cards</div>
+    <div class="small">Tap card to flip • Swipe/keys to change</div>
+  </div>
+
+  <div class="card-wrap">
+    <div class="card" id="card">
+      <div class="front card-inner"><img id="img" alt="card image"/></div>
+      <div class="back card-inner"><div id="backText" class="text"></div></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="prev">◀︎ Prev</button>
+    <button id="flip">Flip</button>
+    <button id="next">Next ▶︎</button>
+  </div>
+
+  <section style="margin-top:16px">
+    <h3>Create / Edit Card</h3>
+    <div class="row">
+      <input id="title" type="text" placeholder="Title / Mantra (e.g., Walking the Dogs — Good Enough Walks)"/>
+    </div>
+    <div class="row">
+      <input id="imgFile" type="file" accept="image/*" />
+      <button id="useExisting">Use current image</button>
+    </div>
+    <div class="row">
+      <textarea id="back" placeholder="Back text / reminder"></textarea>
+    </div>
+    <div class="toolbar">
+      <button id="add" class="primary">Add Card</button>
+      <button id="update">Update Current</button>
+      <button id="remove">Delete Current</button>
+      <button id="clearAll">Clear All</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="small">All data is stored locally on your device (no accounts, no servers). Add to home screen to use it like an app. Works offline.</div>
+</footer>
+
+<script>
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('service-worker.js'); }
+
+let deck = JSON.parse(localStorage.getItem('deck')||'[]');
+let idx = +localStorage.getItem('idx')||0;
+const el = (id)=>document.getElementById(id);
+const cardEl = el('card'), imgEl = el('img'), backEl = el('backText'), countEl=el('count');
+
+function render(){
+  countEl.textContent = deck.length;
+  if(deck.length===0){ imgEl.src=''; backEl.textContent=''; cardEl.classList.remove('flipped'); return; }
+  idx = Math.max(0, Math.min(idx, deck.length-1));
+  const c = deck[idx];
+  imgEl.src = c.img || '';
+  backEl.textContent = (c.back || '');
+  localStorage.setItem('idx', idx);
+}
+function addCard(card){ deck.push(card); save(); idx = deck.length-1; render(); }
+function updateCard(card){ if(deck.length===0) return; deck[idx] = card; save(); render(); }
+function removeCurrent(){ if(deck.length===0) return; deck.splice(idx,1); idx=Math.max(0,idx-1); save(); render(); }
+function save(){ localStorage.setItem('deck', JSON.stringify(deck)); }
+
+// Controls
+el('prev').onclick=()=>{ if(deck.length){ idx=(idx-1+deck.length)%deck.length; render(); } };
+el('next').onclick=()=>{ if(deck.length){ idx=(idx+1)%deck.length; render(); } };
+el('flip').onclick=()=>cardEl.classList.toggle('flipped');
+cardEl.addEventListener('click', ()=>cardEl.classList.toggle('flipped'));
+
+// Swipe
+let startX=null;
+cardEl.addEventListener('touchstart',(e)=>startX=e.touches[0].clientX);
+cardEl.addEventListener('touchend',(e)=>{ if(startX==null) return; const dx=e.changedTouches[0].clientX-startX; if(Math.abs(dx)>40){ if(dx>0) el('prev').click(); else el('next').click(); } startX=null; });
+
+// Keyboard
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='ArrowRight') el('next').click();
+  if(e.key==='ArrowLeft') el('prev').click();
+  if(e.key===' ') el('flip').click();
+});
+
+// Add/update
+function fileToDataUrl(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+
+el('add').onclick=async()=>{
+  const title = el('title').value.trim();
+  const back = el('back').value.trim();
+  let imgData = null;
+  const f = el('imgFile').files[0];
+  if(f) imgData = await fileToDataUrl(f);
+  if(!imgData) { alert('Please choose an image (front of card).'); return; }
+  addCard({title, back, img: imgData});
+  el('imgFile').value=''; el('title').value=''; el('back').value='';
+};
+
+el('useExisting').onclick=()=>{
+  if(deck.length===0){ alert('No current card. Add or import first.'); return; }
+  el('imgFile').value='';
+  el('title').value = deck[idx].title||'';
+  el('back').value = deck[idx].back||'';
+};
+
+el('update').onclick=async()=>{
+  if(deck.length===0){ alert('No cards to update.'); return; }
+  const title = el('title').value.trim();
+  const back = el('back').value.trim();
+  let imgData = deck[idx].img;
+  const f = el('imgFile').files[0];
+  if(f) imgData = await fileToDataUrl(f);
+  updateCard({title, back, img: imgData});
+};
+
+el('remove').onclick=()=>{ if(confirm('Delete this card?')) removeCurrent(); };
+el('clearAll').onclick=()=>{ if(confirm('Delete ALL cards?')){ deck=[]; save(); render(); } };
+
+// Import / Export
+el('btnExport').onclick=()=>{
+  const data = JSON.stringify(deck);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'imperfect_cards_deck.json'; a.click();
+  URL.revokeObjectURL(url);
+};
+el('btnImport').onclick=()=>{
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='application/json';
+  inp.onchange = ()=>{
+    const f = inp.files[0]; const r = new FileReader();
+    r.onload=()=>{ try{ deck = JSON.parse(r.result||'[]'); idx=0; save(); render(); } catch(e){ alert('Invalid deck file'); } };
+    r.readAsText(f);
+  };
+  inp.click();
+};
+
+// Install prompt handling
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; document.getElementById('btnInstall').classList.remove('hidden'); });
+document.getElementById('btnInstall').onclick=async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; document.getElementById('btnInstall').classList.add('hidden'); };
+
+// Seed with an example info card if empty
+if(deck.length===0){
+  deck=[{title:'Welcome', back:'Tap to flip. Add your own cards with images + text. Everything saves offline on your device.', img:''}];
+  save();
+}
+render();
+</script>
+</body>
+</html>

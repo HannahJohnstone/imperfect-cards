@@ -1,0 +1,9 @@
+{
+  "name": "Imperfect Cards",
+  "short_name": "Cards",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#294B2F",
+  "icons": []
+}
