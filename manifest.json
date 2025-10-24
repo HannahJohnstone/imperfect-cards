@@ -1,16 +1,18 @@
 {
   "name": "Imperfect Cards",
   "short_name": "Cards",
-  "start_url": ".",
+  "description": "A calming space to store and flip through your personal affirmations and grounding cards. Works offline and saves locally.",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f7f5",
   "theme_color": "#294B2F",
+  "orientation": "portrait",
   "icons": [
-  {
-    "src": "icon-512.png",
-    "sizes": "512x512",
-    "type": "image/png",
-    "purpose": "any maskable"
-  }
-]
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
